@@ -4,9 +4,11 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rabbitmq.client.*;
 import org.apache.tomcat.util.json.JSONParser;
+import org.springframework.amqp.core.AmqpAdmin;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.config.SimpleRabbitListenerEndpoint;
+import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.listener.MethodRabbitListenerEndpoint;
 import org.springframework.amqp.rabbit.listener.RabbitListenerEndpointRegistry;
@@ -31,6 +33,12 @@ public class ClientMq  {
     private RabbitListenerEndpointRegistry rabbitListenerEndpointRegistry;
 
     @Autowired
+    QueueCreationListener queueCreationListener;
+
+    @Autowired
+    private RabbitAdmin rabbitAdmin;
+
+    @Autowired
     RestTemplate restTemplate;
     ConnectionFactory factory = new ConnectionFactory();
     Connection connection = factory.newConnection();
@@ -40,7 +48,7 @@ public class ClientMq  {
     public ClientMq() throws IOException, TimeoutException {
     }
 
-    @RabbitListener(queues = "general", messageConverter = "Jackson2JsonMessageConverter")
+    @RabbitListener(queues = "general")
     public void get(@RequestBody MessageDto message) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -54,6 +62,20 @@ public class ClientMq  {
         } else {
             System.out.println("BŁĄD");
         }
+    }
+
+    @RabbitListener(queues = "listenerCreator")
+    public void createListener(String queueId) {
+        boolean queueExists = rabbitAdmin.getQueueInfo(queueId) != null;
+        if (queueExists) {
+            queueCreationListener.createListener(queueId);
+            System.out.println("Created Listener for queueId: " + queueId);
+
+        } else {
+            System.out.println(rabbitAdmin.getQueueInfo("novoAkademia"));
+            System.out.println("Queue not found: " + queueId);
+        }
+
     }
 
     @CrossOrigin(origins = "http://localhost:3000")
